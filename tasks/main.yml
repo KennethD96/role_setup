@@ -1,0 +1,195 @@
+---
+- name: Set hostname
+  ansible.builtin.hostname:
+    name: "{{ setup_hostname }}"
+
+- name: Set timezone
+  community.general.timezone:
+    name: "{{ setup_timezone }}"
+
+- name: Set nameservers
+  community.general.nmcli:
+    conn_name: "{{ ansible_default_ipv6.interface }}"
+    dns6: "{{ setup_dns_servers.ipv6 | default('') }}"
+    dns4: "{{ setup_dns_servers.ipv4 | default('') }}"
+    type: generic
+    state: present
+  when: setup_dns_servers
+  notify: Restart NetworkManager
+
+- name: Set custom DNS search list
+  community.general.nmcli:
+    conn_name: "{{ ansible_default_ipv6.interface }}"
+    dns6_search: "{{ setup_dns_domain_search }}"
+    dns4_search: "{{ setup_dns_domain_search }}"
+    type: generic
+    state: present
+  when: setup_dns_domain_search
+  notify: Restart NetworkManager
+
+- name: Configure Chrony
+  when: setup_ntp_servers
+
+  block:
+    - name: Install chrony
+      ansible.builtin.package:
+        name: chrony
+        state: present
+
+    - name: Ensure correct ownership of chrony dirs
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: chrony
+        group: chrony
+        mode: "750"
+        state: directory
+      loop:
+        - /run/chrony
+        - /var/lib/chrony
+      failed_when: false
+      notify: Restart chronyd
+
+    - name: Make sure that hwclock is set to UTC
+      ansible.builtin.lineinfile:
+        path: "/etc/adjtime"
+        regexp: "LOCAL"
+        line: "UTC"
+        create: true
+        mode: "0644"
+
+    - name: Configure chronyd
+      ansible.builtin.template:
+        src: chrony.conf.j2
+        dest: /etc/chrony.conf
+        mode: "644"
+        owner: root
+        group: root
+      notify: Restart chronyd
+
+- name: Install required packages (EL)
+  ansible.builtin.package:
+    name:
+      - langpacks-nb
+      - dnf-plugins-core
+      - cronie
+      - bash-completion
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Setup EPEL on EL hosts
+  when:
+    - setup_use_epel | bool
+    - ansible_distribution == "RedHat" or
+      ansible_distribution == "CentOS"
+  block:
+    - name: Enable CodeReady-builder repo
+      community.general.rhsm_repository:
+        name: "codeready-builder-for-rhel-{{ ansible_distribution_major_version }}-{{ ansible_architecture }}-rpms"
+      when: ansible_distribution == "RedHat"
+
+    - name: Ensure the crb repository is enabled
+      community.general.dnf_config_manager:
+        name: crb
+        state: enabled
+      when: ansible_distribution == "CentOS"
+
+    - name: Install EPEL repo RPM
+      ansible.builtin.dnf:
+        name: "https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm"
+        disable_gpg_check: true
+
+- name: Install packages (common)
+  ansible.builtin.package:
+    name:
+      - vim
+      - git
+      - btop
+    state: present
+  failed_when: false
+
+- name: Ensure locale (Debian)
+  when: ansible_os_family == "Debian"
+  block:
+    - name: Ensure a locale exists
+      community.general.locale_gen:
+        name: "{{ locale.lang }}"
+        state: present
+
+    - name: Ensure /etc/default/locale
+      ansible.builtin.template:
+        src: locale.conf.j2
+        dest: /etc/default/locale
+        owner: root
+        group: root
+        mode: "0644"
+
+- name: Ensure /etc/locale.conf
+  ansible.builtin.template:
+    src: locale.conf.j2
+    dest: /etc/locale.conf
+    owner: root
+    group: root
+    mode: "0644"
+  when: ansible_os_family == "RedHat"
+
+- name: Setup groups
+  ansible.builtin.group:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ setup_groups }}"
+
+- name: Setup users
+  ansible.builtin.user:
+    name: "{{ item.key }}"
+    comment: "{{ item.value.full_name | default(item.key) }}"
+    password: "{{ item.value.hash | default(None) }}"
+    groups: "{{ item.value.groups | default([]) }}"
+    shell: "{{ item.value.shell | default('/bin/bash') }}"
+    home: "{{ item.value.home | default('/home/%s' % item.key) }}"
+  loop: "{{ setup_users | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Setup authorized_keys
+  ansible.posix.authorized_key:
+    user: "{{ item.key }}"
+    state: present
+    exclusive: true
+    key: "{{ item.value | join('\n') }}"
+  loop: "{{ setup_ssh_pubkeys | dict2items }}"
+  loop_control:
+    label: "{{ item.key }}"
+
+- name: Setup NOPASSWD in sudoers
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers
+    regexp: "^#\\s+%wheel\\s+ALL=\\(ALL\\)\\s+NOPASSWD:\\s+ALL$" # noqa no-tabs
+    line: "%wheel  ALL=(ALL)       NOPASSWD: ALL"
+    backrefs: true
+    validate: "/usr/sbin/visudo -cf %s"
+
+- name: Disable passwords in sudoers
+  ansible.builtin.lineinfile:
+    path: /etc/sudoers
+    regexp: "^%wheel\\s+ALL=\\(ALL\\)\\s+ALL$" # noqa no-tabs
+    line: "# %wheel  ALL=(ALL)       ALL"
+    backrefs: true
+    validate: "/usr/sbin/visudo -cf %s"
+
+- name: Enable cockpit
+  ansible.builtin.service:
+    name: cockpit.socket
+    state: started
+    enabled: true
+  when: setup_cockpit | bool
+
+- name: Disable firewalld
+  ansible.builtin.service:
+    name: firewalld
+    enabled: false
+    state: stopped
+  when: setup_firewall_disable | bool
+
+- name: Include autopatch.yml
+  ansible.builtin.include_tasks: autopatch.yml
+  when: setup_autopatch

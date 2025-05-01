@@ -1,0 +1,163 @@
+---
+- name: Setup automatic patching (dnf4)
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_pkg_mgr == "dnf"
+
+  block:
+    - name: Install dnf-automatic
+      ansible.builtin.package:
+        name: dnf-automatic
+
+    - name: Ensure updates are applied
+      ansible.builtin.lineinfile:
+        path: /etc/dnf/automatic.conf
+        search_string: apply_updates = no
+        line: apply_updates = yes
+      notify: Restart dnf-automatic-install.timer
+
+    - name: Ensure system is rebooted when needed
+      ansible.builtin.lineinfile:
+        path: /etc/dnf/automatic.conf
+        search_string: reboot = never
+        line: reboot = when-needed
+      notify: Restart dnf-automatic-install.timer
+
+    - name: Create /etc/systemd/system/dnf-automatic-install.timer.d/
+      ansible.builtin.file:
+        state: directory
+        dest: /etc/systemd/system/dnf-automatic-install.timer.d/
+        owner: root
+        group: root
+        mode: "644"
+
+    - name: Setup /etc/systemd/system/dnf-automatic-install.timer.d/time.conf
+      ansible.builtin.copy:
+        content: |
+          [Timer]
+          OnBootSec=
+          OnCalendar= {{ setup_autopatch.time }}
+        dest: /etc/systemd/system/dnf-automatic-install.timer.d/time.conf
+        owner: root
+        group: root
+        mode: "644"
+      notify: Restart dnf-automatic-install.timer
+
+    - name: Enable dnf-automatic.timer
+      ansible.builtin.systemd:
+        name: dnf-automatic.timer
+        state: started
+        daemon_reload: true
+        enabled: true
+
+    - name: Enable dnf-automatic-install.timer
+      ansible.builtin.systemd:
+        name: dnf-automatic-install.timer
+        state: started
+        daemon_reload: true
+        enabled: true
+
+- name: Setup automatic patching (dnf5)
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_pkg_mgr == "dnf5"
+
+  block:
+    - name: Install dnf-automatic
+      ansible.builtin.package:
+        name: dnf-automatic
+
+    - name: Stat /etc/dnf/automatic.conf
+      ansible.builtin.stat:
+        path: /etc/dnf/automatic.conf
+      register: _automatic_conf
+
+    - name: Copy automatic.conf template
+      ansible.builtin.copy:
+        src: /usr/share/dnf5/dnf5-plugins/automatic.conf
+        remote_src: true
+        dest: /etc/dnf/automatic.conf
+        owner: root
+        group: root
+        mode: "644"
+      when: not _automatic_conf.stat.exists
+
+    - name: Ensure updates are applied
+      ansible.builtin.lineinfile:
+        path: /etc/dnf/automatic.conf
+        search_string: apply_updates = no
+        line: apply_updates = yes
+      notify: Restart dnf5-automatic.timer
+
+    - name: Ensure system is rebooted when needed
+      ansible.builtin.lineinfile:
+        path: /etc/dnf/automatic.conf
+        search_string: reboot = never
+        line: reboot = when-needed
+      notify: Restart dnf5-automatic.timer
+
+    - name: Create /etc/systemd/system/dnf-automatic-install.timer.d/
+      ansible.builtin.file:
+        state: directory
+        dest: /etc/systemd/system/dnf5-automatic.timer.d/
+        owner: root
+        group: root
+        mode: "644"
+
+    - name: Setup /etc/systemd/system/dnf-automatic-install.timer.d/time.conf
+      ansible.builtin.copy:
+        content: |
+          [Timer]
+          OnBootSec=
+          OnCalendar= {{ setup_autopatch.time }}
+        dest: /etc/systemd/system/dnf5-automatic.timer.d/time.conf
+        owner: root
+        group: root
+        mode: "644"
+      notify: Restart dnf5-automatic.timer
+
+    - name: Enable dnf-automatic.timer
+      ansible.builtin.systemd:
+        name: dnf5-automatic.timer
+        state: started
+        daemon_reload: true
+        enabled: true
+
+- name: Setup automatic patching (Debian)
+  when:
+    - ansible_os_family == "Debian"
+
+  block:
+    - name: Install unattended-upgrades
+      ansible.builtin.package:
+        name: unattended-upgrades
+        state: present
+
+    - name: Ensure all updates are installed (Debian)
+      ansible.builtin.lineinfile:
+        path: /etc/apt/apt.conf.d/50unattended-upgrades
+        regexp: '^\/\/\s*"origin=Debian,codename=\${distro_codename}-updates";$'
+        line: '        "origin=Debian,codename=${distro_codename}-updates";'
+      notify: Restart unattended-upgrades
+      when: ansible_distribution == "Debian"
+
+    - name: Ensure all updates are installed (Ubuntu)
+      ansible.builtin.lineinfile:
+        path: /etc/apt/apt.conf.d/50unattended-upgrades
+        regexp: '^\/\/\s*"\${distro_id}:\${distro_codename}-updates";$'
+        line: '        "${distro_id}:${distro_codename}-updates";'
+      notify: Restart unattended-upgrades
+      when: ansible_distribution == "Ubuntu"
+
+    - name: Ensure reboot after upgrade
+      ansible.builtin.lineinfile:
+        path: /etc/apt/apt.conf.d/50unattended-upgrades
+        regexp: '^\/\/Unattended-Upgrade::Automatic-Reboot "false";$'
+        line: 'Unattended-Upgrade::Automatic-Reboot "true";'
+      notify: Restart unattended-upgrades
+
+    - name: Enable unattended-upgrades service
+      ansible.builtin.service:
+        name: unattended-upgrades
+        state: started
+        enabled: true

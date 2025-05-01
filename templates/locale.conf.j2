@@ -1,0 +1,3 @@
+# {{ ansible_managed }}
+{{ 'LANG=%s.UTF-8' % setup_locale.lang | regex_replace("\.(UTF-|utf)8") }}
+{{ 'LC_MESSAGES=%s.UTF-8' % setup_locale.LC_MESSAGES | regex_replace("\.(UTF-|utf)8") }}

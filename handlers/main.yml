@@ -1,0 +1,27 @@
+---
+- name: Restart NetworkManager
+  ansible.builtin.service:
+    name: NetworkManager
+    state: restarted
+
+- name: Restart chronyd
+  ansible.builtin.service:
+    name: chronyd
+    state: restarted
+
+- name: Restart dnf-automatic-install.timer
+  ansible.builtin.systemd:
+    name: dnf-automatic-install.timer
+    daemon_reload: true
+    state: restarted
+
+- name: Restart dnf5-automatic.timer
+  ansible.builtin.systemd:
+    name: dnf5-automatic.timer
+    daemon_reload: true
+    state: restarted
+
+- name: Restart unattended-upgrades
+  ansible.builtin.systemd:
+    name: unattended-upgrades
+    state: restarted

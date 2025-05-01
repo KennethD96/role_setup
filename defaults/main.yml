@@ -1,0 +1,37 @@
+---
+setup_hostname: "{{ inventory_hostname }}"
+setup_dns_domain_search:
+  - 0xf.no
+
+setup_timezone: Europe/Oslo
+
+setup_locale:
+  lang: nb_NO.UTF-8
+  LC_MESSAGES: C.UTF-8
+
+setup_dns_servers:
+  ipv4:
+    - 10.0.0.1
+    - 10.0.0.2
+
+  ipv6:
+    - fd00::1
+    - fd00::2
+
+setup_ntp_servers:
+  - ntp.0xf.no
+  - ntp.justervesenet.no
+
+setup_groups: []
+setup_users: {}
+
+setup_ssh_pubkeys: {}
+
+setup_firewall_disable: false
+
+setup_autopatch:
+  time: 03:00
+
+setup_use_epel: true
+
+setup_cockpit: false
