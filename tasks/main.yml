@@ -112,7 +112,7 @@
   block:
     - name: Ensure a locale exists
       community.general.locale_gen:
-        name: "{{ locale.lang }}"
+        name: "{{ setup_locale.lang }}"
         state: present
 
     - name: Ensure /etc/default/locale
