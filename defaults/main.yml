@@ -1,6 +1,7 @@
 ---
 setup_hostname: "{{ inventory_hostname }}"
 setup_dns_domain_search:
+  - i.0xf.no
   - 0xf.no
 
 setup_timezone: Europe/Oslo
@@ -19,7 +20,7 @@ setup_dns_servers:
     - fd00::2
 
 setup_ntp_servers:
-  - ntp.0xf.no
+  - ntp.i.0xf.no
   - ntp.justervesenet.no
 
 setup_groups: []
