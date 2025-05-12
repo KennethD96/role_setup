@@ -9,9 +9,13 @@
 
 - name: Set nameservers
   community.general.nmcli:
-    conn_name: "{{ ansible_default_ipv6.interface }}"
+    conn_name: lo
     dns6: "{{ setup_dns_servers.ipv6 | default('') }}"
+    dns6_options:
+      - trust-ad
     dns4: "{{ setup_dns_servers.ipv4 | default('') }}"
+    dns4_options:
+      - trust-ad
     type: generic
     state: present
   when: setup_dns_servers
@@ -19,12 +23,25 @@
 
 - name: Set custom DNS search list
   community.general.nmcli:
-    conn_name: "{{ ansible_default_ipv6.interface }}"
+    conn_name: lo
     dns6_search: "{{ setup_dns_domain_search }}"
     dns4_search: "{{ setup_dns_domain_search }}"
     type: generic
     state: present
   when: setup_dns_domain_search
+  notify: Restart NetworkManager
+
+- name: Clear old DNS settings
+  community.general.nmcli:
+    conn_name: "{{ ansible_default_ipv6.interface }}"
+    dns6: ""
+    dns6_ignore_auto: true
+    dns4: ""
+    dns6_search: ""
+    dns4_search: ""
+    type: generic
+    state: present
+  when: setup_dns_servers
   notify: Restart NetworkManager
 
 - name: Configure Chrony
