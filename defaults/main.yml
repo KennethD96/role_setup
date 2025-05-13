@@ -31,7 +31,7 @@ setup_ssh_pubkeys: {}
 setup_firewall_disable: false
 
 setup_autopatch:
-  time: 03:00
+  time: 04:00
 
 setup_use_epel: true
 

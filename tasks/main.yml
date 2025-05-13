@@ -31,14 +31,11 @@
   when: setup_dns_domain_search
   notify: Restart NetworkManager
 
-- name: Clear old DNS settings
+- name: Disable autoconf DNS servers
   community.general.nmcli:
     conn_name: "{{ ansible_default_ipv6.interface }}"
-    dns6: ""
     dns6_ignore_auto: true
-    dns4: ""
-    dns6_search: ""
-    dns4_search: ""
+    dns4_ignore_auto: true
     type: generic
     state: present
   when: setup_dns_servers
