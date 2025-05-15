@@ -1,4 +1,10 @@
 ---
+- name: Remove /etc/resolv.conf
+  ansible.builtin.file:
+    dest: /etc/resolv.conf
+    state: absent
+  notify: Restart NetworkManager
+
 - name: Restart NetworkManager
   ansible.builtin.service:
     name: NetworkManager

@@ -7,6 +7,17 @@
   community.general.timezone:
     name: "{{ setup_timezone }}"
 
+- name: Disable systemd-resolved
+  ansible.builtin.service:
+    name: systemd-resolved.service
+    enabled: false
+    state: stopped
+  when: ansible_distribution == "Fedora"
+  notify: Remove /etc/resolv.conf
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
 - name: Set nameservers
   community.general.nmcli:
     conn_name: lo
