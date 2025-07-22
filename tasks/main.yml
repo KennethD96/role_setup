@@ -29,7 +29,9 @@
       - trust-ad
     type: generic
     state: present
-  when: setup_dns_servers
+  when:
+    - setup_dns_servers is mapping
+    - setup_dns_servers | length > 0
   notify: Restart NetworkManager
 
 - name: Set custom DNS search list
@@ -39,7 +41,9 @@
     dns4_search: "{{ setup_dns_domain_search }}"
     type: generic
     state: present
-  when: setup_dns_domain_search
+  when:
+    - setup_dns_domain_search is iterable
+    - setup_dns_domain_search | length > 0
   notify: Restart NetworkManager
 
 - name: Disable autoconf DNS servers
@@ -49,11 +53,15 @@
     dns4_ignore_auto: true
     type: generic
     state: present
-  when: setup_dns_servers
+  when:
+    - setup_dns_servers is mapping
+    - setup_dns_servers | length > 0
   notify: Restart NetworkManager
 
 - name: Configure Chrony
-  when: setup_ntp_servers
+  when:
+    - setup_ntp_servers is iterable
+    - setup_ntp_servers | length > 0
 
   block:
     - name: Install chrony
@@ -217,4 +225,6 @@
 
 - name: Include autopatch.yml
   ansible.builtin.include_tasks: autopatch.yml
-  when: setup_autopatch
+  when:
+    - setup_autopatch is mapping
+    - setup_autopatch.time is defined
