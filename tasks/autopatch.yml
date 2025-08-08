@@ -70,7 +70,7 @@
     - name: Stat /etc/dnf/automatic.conf
       ansible.builtin.stat:
         path: /etc/dnf/automatic.conf
-      register: _automatic_conf
+      register: _setup_automatic_conf
 
     - name: Copy automatic.conf template
       ansible.builtin.copy:
@@ -80,7 +80,7 @@
         owner: root
         group: root
         mode: "644"
-      when: not _automatic_conf.stat.exists
+      when: not _setup_automatic_conf.stat.exists
 
     - name: Ensure updates are applied
       ansible.builtin.lineinfile:
