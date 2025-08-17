@@ -3,8 +3,8 @@
   when:
     - ansible_os_family == "RedHat"
     - ansible_pkg_mgr == "dnf"
-
   block:
+
     - name: Install dnf-automatic
       ansible.builtin.package:
         name: dnf-automatic
@@ -61,8 +61,8 @@
   when:
     - ansible_os_family == "RedHat"
     - ansible_pkg_mgr == "dnf5"
-
   block:
+
     - name: Install dnf-automatic
       ansible.builtin.package:
         name: dnf-automatic
@@ -126,8 +126,8 @@
 - name: Setup automatic patching (Debian)
   when:
     - ansible_os_family == "Debian"
-
   block:
+
     - name: Install unattended-upgrades
       ansible.builtin.package:
         name: unattended-upgrades
