@@ -58,6 +58,14 @@
     - setup_dns_servers | length > 0
   notify: Restart NetworkManager
 
+- name: Disable auto-default in NetworkManager
+  ansible.builtin.lineinfile:
+    path: /etc/NetworkManager/NetworkManager.conf
+    line: "no-auto-default=*"
+    insertafter: '^\[main\]'
+  failed_when: false
+  notify: Restart NetworkManager
+
 - name: Configure Chrony
   when:
     - setup_ntp_servers is iterable
