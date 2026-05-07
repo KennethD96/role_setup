@@ -11,6 +11,9 @@ setup_locale:
 setup_dns_servers: {}
 setup_ntp_servers: []
 setup_groups: []
+setup_sudoers_groups:
+  - wheel
+  - sudo
 setup_users: {}
 
 setup_ssh_pubkeys: {}

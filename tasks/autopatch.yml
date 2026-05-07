@@ -1,8 +1,8 @@
 ---
 - name: Setup automatic patching (dnf4)
   when:
-    - ansible_os_family == "RedHat"
-    - ansible_pkg_mgr == "dnf"
+    - ansible_facts.os_family == "RedHat"
+    - ansible_facts.pkg_mgr == "dnf"
   block:
 
     - name: Install dnf-automatic
@@ -59,13 +59,15 @@
 
 - name: Setup automatic patching (dnf5)
   when:
-    - ansible_os_family == "RedHat"
-    - ansible_pkg_mgr == "dnf5"
+    - ansible_facts.os_family == "RedHat"
+    - ansible_facts.pkg_mgr == "dnf5"
   block:
 
     - name: Install dnf-automatic
       ansible.builtin.package:
         name: dnf-automatic
+      vars:
+        mitogen_task_isolation: fork
 
     - name: Stat /etc/dnf/automatic.conf
       ansible.builtin.stat:
@@ -125,7 +127,7 @@
 
 - name: Setup automatic patching (Debian)
   when:
-    - ansible_os_family == "Debian"
+    - ansible_facts.os_family == "Debian"
   block:
 
     - name: Install unattended-upgrades
@@ -139,7 +141,7 @@
         regexp: '^\/\/\s*"origin=Debian,codename=\${distro_codename}-updates";$'
         line: '        "origin=Debian,codename=${distro_codename}-updates";'
       notify: Restart unattended-upgrades
-      when: ansible_distribution == "Debian"
+      when: ansible_facts.distribution == "Debian"
 
     - name: Ensure all updates are installed (Ubuntu)
       ansible.builtin.lineinfile:
@@ -147,7 +149,7 @@
         regexp: '^\/\/\s*"\${distro_id}:\${distro_codename}-updates";$'
         line: '        "${distro_id}:${distro_codename}-updates";'
       notify: Restart unattended-upgrades
-      when: ansible_distribution == "Ubuntu"
+      when: ansible_facts.distribution == "Ubuntu"
 
     - name: Ensure reboot after upgrade
       ansible.builtin.lineinfile:

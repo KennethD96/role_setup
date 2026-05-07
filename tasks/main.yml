@@ -12,7 +12,7 @@
     name: systemd-resolved.service
     enabled: false
     state: stopped
-  when: ansible_distribution == "Fedora"
+  when: ansible_facts.distribution == "Fedora"
   notify: Remove /etc/resolv.conf
 
 - name: Flush handlers
@@ -48,7 +48,7 @@
 
 - name: Disable autoconf DNS servers
   community.general.nmcli:
-    conn_name: "{{ ansible_default_ipv6.interface }}"
+    conn_name: "{{ ansible_facts.default_ipv6.interface }}"
     dns6_ignore_auto: true
     dns4_ignore_auto: true
     type: generic
@@ -115,29 +115,31 @@
       - cronie
       - bash-completion
     state: present
-  when: ansible_os_family == "RedHat"
+  vars:
+    mitogen_task_isolation: fork
+  when: ansible_facts.os_family == "RedHat"
 
 - name: Setup EPEL on EL hosts
   when:
     - setup_use_epel | bool
-    - ansible_distribution == "RedHat" or
-      ansible_distribution == "CentOS"
+    - ansible_facts.distribution == "RedHat" or
+      ansible_facts.distribution == "CentOS"
   block:
 
     - name: Enable CodeReady-builder repo
       community.general.rhsm_repository:
-        name: "codeready-builder-for-rhel-{{ ansible_distribution_major_version }}-{{ ansible_architecture }}-rpms"
-      when: ansible_distribution == "RedHat"
+        name: "codeready-builder-for-rhel-{{ ansible_facts.distribution_major_version }}-{{ ansible_facts.architecture }}-rpms"
+      when: ansible_facts.distribution == "RedHat"
 
     - name: Ensure the crb repository is enabled
       community.general.dnf_config_manager:
         name: crb
         state: enabled
-      when: ansible_distribution == "CentOS"
+      when: ansible_facts.distribution == "CentOS"
 
     - name: Install EPEL repo RPM
       ansible.builtin.dnf:
-        name: "https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_distribution_major_version }}.noarch.rpm"
+        name: "https://dl.fedoraproject.org/pub/epel/epel-release-latest-{{ ansible_facts.distribution_major_version }}.noarch.rpm"
         disable_gpg_check: true
 
 - name: Install packages (common)
@@ -150,7 +152,7 @@
   failed_when: false
 
 - name: Ensure locale (Debian)
-  when: ansible_os_family == "Debian"
+  when: ansible_facts.os_family == "Debian"
   block:
 
     - name: Ensure a locale exists
@@ -173,7 +175,7 @@
     owner: root
     group: root
     mode: "0644"
-  when: ansible_os_family == "RedHat"
+  when: ansible_facts.os_family == "RedHat"
 
 - name: Setup groups
   ansible.builtin.group:
@@ -204,19 +206,12 @@
     label: "{{ item.key }}"
 
 - name: Setup NOPASSWD in sudoers
-  ansible.builtin.lineinfile:
-    path: /etc/sudoers
-    regexp: "^#\\s+%wheel\\s+ALL=\\(ALL\\)\\s+NOPASSWD:\\s+ALL$" # noqa no-tabs
-    line: "%wheel  ALL=(ALL)       NOPASSWD: ALL"
-    backrefs: true
-    validate: "/usr/sbin/visudo -cf %s"
-
-- name: Disable passwords in sudoers
-  ansible.builtin.lineinfile:
-    path: /etc/sudoers
-    regexp: "^%wheel\\s+ALL=\\(ALL\\)\\s+ALL$" # noqa no-tabs
-    line: "# %wheel  ALL=(ALL)       ALL"
-    backrefs: true
+  ansible.builtin.copy:
+    content: |
+      {% for g in setup_sudoers_groups %}
+      %{{ g }} ALL=(ALL) NOPASSWD: ALL
+      {% endfor %}
+    dest: /etc/sudoers.d/setup
     validate: "/usr/sbin/visudo -cf %s"
 
 - name: Enable cockpit
